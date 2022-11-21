@@ -39,11 +39,12 @@
 
         if(empty($error)) {
           echo "<div class=\"alert alert-success\">Categorías actualizadas</div>";
+          $link->commit();
         } else {
           echo "<div class=\"alert alert-error\">$error</div>";
+          $link->rollback();
         }
       }
-      $link->commit();
     }
 
     // Preparo la consulta
