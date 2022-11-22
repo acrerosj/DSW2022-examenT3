@@ -17,9 +17,30 @@
     if (isset($_POST['update'])) {
       $link->autocommit(FALSE);
 
-      // Se borran todos y luego añadimos los que vengan con on.
-      if (! $link->query("DELETE FROM film_category WHERE film_id = " . $film_id)) {
-        $error = "Error al borrar";
+      // Obtener id de las categorias a las que ya pertenecía la película.
+      $sql = "SELECT category_id FROM film_category WHERE film_id = " . $film_id;
+      $result = $link->query($sql);
+      $old_ids = array_map(fn($row) => $row[0], $result->fetch_all());
+      printf("<p>old_ids: %s</p>", implode('-',$old_ids));
+
+      // listado de ids de las categorías a las que ahora va a pertenecer las películas.
+      $new_ids = isset($_POST['category_ids']) ? $_POST['category_ids'] : [];
+      printf("<p>new_ids: %s</p>", implode('-',$new_ids));
+
+      // Listado de las ids que antes estaban y ahora no, Por tanto, hay que borrarlas.
+      $delete_ids = array_diff($old_ids, $new_ids);
+      printf("<p>delete_ids: %s</p>", implode('-',$delete_ids));
+      // Listado de las ids que ahora están y antes no. Por tanto, hay que añadirlas.
+      $create_ids = array_diff($new_ids, $old_ids);
+      printf("<p>create_ids: %s</p>", implode('-',$create_ids));
+
+      // Se borran solo los ids que ya no están: delete_ids.
+      if (count($delete_ids)>0) {
+        $sql = "DELETE FROM film_category WHERE film_id = " . $film_id . " AND category_id IN (" . implode(',',$delete_ids) . ")";
+        printf("<p>%s</p>", $sql);
+        if (! $link->query($sql)) {
+          $error = "Error al borrar";
+        }
       }
 
       if (empty($error)) {
@@ -27,11 +48,10 @@
         $stmt->bind_param("ii", $film_id, $category_id);
    
         $updated = true;
-        foreach($_POST as $category_id => $value) {
-          if ($value == "on") {
-            if (! $stmt->execute()) {
-              $updated = false;
-            }
+        foreach($create_ids as $category_id) {
+          printf("<p>Creando el id: %s", $category_id);
+          if ($updated && !$stmt->execute()) {  // Si updated ya es falso, ni siquiera hace la inserción.
+            $updated = false;
           }
         }
 
@@ -68,7 +88,7 @@
 ?>
           <li>
             <label>
-              <input type="checkbox" name="<?=$row['category_id']?>" id="" <?=$checked?>>
+              <input type="checkbox" name="category_ids[]" value="<?=$row['category_id']?>" id="" <?=$checked?>>
               <?=$row['name']?>
             </label>
           </li>
